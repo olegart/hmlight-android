@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <EditTextPreference
+        android:key="connect_addr"
+        android:title="Адрес сервера"
+        android:summary="Ручная установка IP-адреса сервера"
+        android:defaultValue="http://192.168.1.10" />
+
+    <CheckBoxPreference
+        android:title="Автоопределение сервера"
+        android:defaultValue="true"
+        android:summary="Автоматическое определение адреса сервера"
+        android:key="connect_auto" />
+
+</PreferenceScreen>
