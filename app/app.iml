@@ -92,7 +92,7 @@
       <excludeFolder url="file://$MODULE_DIR$/build/source" />
       <excludeFolder url="file://$MODULE_DIR$/build/symbols" />
     </content>
-    <orderEntry type="jdk" jdkName="Android API 19 Platform" jdkType="Android SDK" />
+    <orderEntry type="jdk" jdkName="Android API 16 Platform" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

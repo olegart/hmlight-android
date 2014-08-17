@@ -2,6 +2,7 @@ package com.example.lightcontrol.app;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -9,6 +10,7 @@ import android.net.ConnectivityManager;
 import android.net.nsd.NsdManager;
 import android.os.Bundle;
 import android.content.Intent;
+import android.os.CountDownTimer;
 import android.preference.PreferenceManager;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -19,19 +21,20 @@ import android.net.nsd.NsdServiceInfo;
 import android.net.nsd.NsdManager.ResolveListener;
 import android.net.NetworkInfo;
 
-import java.net.InetAddress;
-
 public class MainActivity extends Activity {
 
     private WebView mWebView;
     String serverURL;
 
     NsdManager.DiscoveryListener mDiscoveryListener;
-    NsdServiceInfo mService;
     NsdManager mNsdManager;
-    String mServiceName;
-    final String TAG = "Lightcontrol";
+    final String TAG = "Homelight";
     final String SERVICE_TYPE = "_http._tcp.";
+    Boolean isNsdRunning;
+    Boolean isNsdUsed;
+    CountDownTimer NsdTimer;
+
+    ProgressDialog progress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,25 +47,33 @@ public class MainActivity extends Activity {
         Log.i(TAG, "Checking for connection");
 
         if (!mWifi.isConnected()) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Нет Wi-Fi")
-                    .setMessage("Для управления светом необходимо подключение к домашней сети Wi-Fi")
-                    .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
-                        public void onClick(DialogInterface dialog, int which) {
-                            finish();
-                        }
-                    })
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .show();
+            showDialog("Нет подключения Wi-Fi", "Для управления светом необходимо подключение к домашней сети Wi-Fi");
         }
 
         mWebView = (WebView) findViewById(R.id.activity_main_webview);
-        mWebView.setWebViewClient(new WebViewClient());
+        mWebView.setWebViewClient(new WebViewClient() {
+                                      public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                                          showDialog("Ошибка загрузки", "Ошибка загрузки страницы управления. Пожалуйста, проверьте настройки программы и сервера.");
+                                      }
+                                  });
+        serverURL = "";
+        isNsdRunning = false;
+        NsdTimer = new CountDownTimer(2500, 250) {
+
+            public void onTick(long millisUntilFinished) {
+            }
+
+            public void onFinish() {
+                stopProgress();
+                mNsdManager.stopServiceDiscovery(mDiscoveryListener);
+                showDialog("Автоматический поиск", "Сервер управления светом не найден. Пожалуйста, проверьте настройки приложения и сервера.");
+            }
+        };
+
         loadPref();
-
-        Log.i(TAG, "Starting discovery");
-
-        registerService();
+        if (isNsdUsed) {
+            registerService();
+        }
     }
 
 
@@ -92,27 +103,30 @@ public class MainActivity extends Activity {
 
         if (mySharedPreferences.getBoolean("connect_auto", true)) {
             // automatic server discovery
+            isNsdUsed = true;
+//            registerService();
         }
         else {
+            isNsdUsed = false;
             serverURL = mySharedPreferences.getString("connect_addr", "");
             if (!serverURL.startsWith("http://") && !serverURL.startsWith("https://")) {
                 serverURL = "http://" + serverURL;
             }
-        }
-
-        mWebView.loadUrl(serverURL);
-    }
-
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if(hasFocus) {
             mWebView.loadUrl(serverURL);
         }
     }
 
-    public void showDialog(String txt) {
+    protected void onRestart() {
+        super.onRestart();
+        if (!isNsdRunning && isNsdUsed) {
+            registerService();
+        }
+        mWebView.loadUrl(serverURL);
+    }
+
+    public void showDialog(String title, String txt) {
         new AlertDialog.Builder(this)
-                .setTitle("Нет Wi-Fi")
+                .setTitle(title)
                 .setMessage(txt)
                 .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
@@ -122,6 +136,14 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    public void showProgress() {
+        progress = ProgressDialog.show(this, "Поиск сервера", "Автоматический поиск сервера управления светом в сети Wi-Fi.", true);
+    }
+
+    public void stopProgress() {
+        progress.dismiss();
+    }
+
     public void registerService() {
         mNsdManager = (NsdManager) getApplicationContext().getSystemService(Context.NSD_SERVICE);
         initializeDiscoveryListener();
@@ -129,40 +151,43 @@ public class MainActivity extends Activity {
     }
 
     public void initializeDiscoveryListener() {
-        // Instantiate a new DiscoveryListener
         mDiscoveryListener = new NsdManager.DiscoveryListener() {
 
-            //  Called as soon as service discovery begins.
             @Override
             public void onDiscoveryStarted(String regType) {
+                NsdTimer.start();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        showProgress();
+                    }
+                });
                 Log.i(TAG, "Service discovery started");
+                isNsdRunning = true;
             }
 
             @Override
             public void onServiceFound(NsdServiceInfo service) {
-                // A service was found!  Do something with it.
-                //String hostIP = address.getHostAddress() ;
-                //String hostName = address.getHostName();
-                if (!service.getServiceType().equals(SERVICE_TYPE)) {
-                    // Service type is the string containing the protocol and
-                    // transport layer for this service.
-                    Log.d(TAG, "Unknown Service Type: " + service.getServiceType());
-                } else if (service.getServiceName().equals(mServiceName)) {
-                    // The name of the service tells the user what they'd be
-                    // connecting to. It could be "Bob's Chat App".
-                    Log.d(TAG, "Same machine: " + mServiceName);
-                } else if (service.getServiceName().contains("nooLite")){
+                if (service.getServiceName().contains("Homelight")){
                     mNsdManager.resolveService(service, new ResolveListener() {
 
                         @Override
                         public void onServiceResolved(NsdServiceInfo serviceInfo) {
-                            showDialog(serviceInfo.getHost().toString());
+                            serverURL = "http:/" + serviceInfo.getHost().toString();
+                            mNsdManager.stopServiceDiscovery(mDiscoveryListener);
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    NsdTimer.cancel();
+                                    mWebView.loadUrl(serverURL);
+                                    stopProgress();
+                                }
+                            });
                         }
 
                         @Override
                         public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
                             // TODO Auto-generated method stub
-                            showDialog("Resolve failed");
                         }
                     });
                 }
@@ -177,11 +202,13 @@ public class MainActivity extends Activity {
 
             @Override
             public void onDiscoveryStopped(String serviceType) {
+                isNsdRunning = false;
                 Log.i(TAG, "Discovery stopped: " + serviceType);
             }
 
             @Override
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
+                isNsdRunning = false;
                 Log.e(TAG, "Discovery failed: Error code:" + errorCode);
                 mNsdManager.stopServiceDiscovery(this);
             }
