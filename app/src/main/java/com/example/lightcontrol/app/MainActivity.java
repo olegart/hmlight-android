@@ -65,7 +65,9 @@ public class MainActivity extends Activity {
 
             public void onFinish() {
                 stopProgress();
-                mNsdManager.stopServiceDiscovery(mDiscoveryListener);
+                if (mNsdManager != null) {
+                    mNsdManager.stopServiceDiscovery(mDiscoveryListener);
+                }
                 showDialog("Автоматический поиск", "Сервер управления светом не найден. Пожалуйста, проверьте настройки приложения и сервера.");
             }
         };
@@ -210,13 +212,12 @@ public class MainActivity extends Activity {
             public void onStartDiscoveryFailed(String serviceType, int errorCode) {
                 isNsdRunning = false;
                 Log.e(TAG, "Discovery failed: Error code:" + errorCode);
-                mNsdManager.stopServiceDiscovery(this);
             }
 
             @Override
             public void onStopDiscoveryFailed(String serviceType, int errorCode) {
+                isNsdRunning = false;
                 Log.e(TAG, "Discovery failed: Error code:" + errorCode);
-                mNsdManager.stopServiceDiscovery(this);
             }
         };
     }
