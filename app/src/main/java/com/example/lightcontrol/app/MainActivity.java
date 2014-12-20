@@ -51,6 +51,7 @@ public class MainActivity extends Activity {
         }
 
         mWebView = (WebView) findViewById(R.id.activity_main_webview);
+        mWebView.getSettings().setJavaScriptEnabled(true);
         mWebView.setWebViewClient(new WebViewClient() {
                                       public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                                           showDialog("Ошибка загрузки", "Ошибка загрузки страницы управления. Пожалуйста, проверьте настройки программы и сервера.");
