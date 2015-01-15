@@ -9,6 +9,7 @@ android {
         targetSdkVersion 19
         versionCode 4
         versionName "0.2.1"
+        applicationId "com.example.lightcontrol.app"
     }
     buildTypes {
         release {
