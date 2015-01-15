@@ -171,7 +171,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onServiceFound(NsdServiceInfo service) {
-                if (service.getServiceName().contains("Homelight")){
+                if (service.getServiceName().contains(TAG){
                     mNsdManager.resolveService(service, new ResolveListener() {
 
                         @Override
